@@ -2,6 +2,7 @@
 #include <Eigen/Geometry>
 #include <Eigen/Sparse>
 #include <Eigen/SparseCholesky>
+#include <Eigen/Eigenvalues>
 #include <iostream>
 
 using namespace std;
@@ -20,9 +21,6 @@ MatrixXd nrosy
 {
   assert(soft_id.size() > 0); // One constraint is necessary to make the solution unique
 
-  std::cerr << V << std::endl;
-  std::cerr << F << std::endl;
-
   Matrix<double,Dynamic,3> T1(F.rows(),3), T2(F.rows(),3), T3(F.rows(),3);
 
   for (unsigned i=0;i<F.rows();++i)
@@ -35,18 +33,10 @@ MatrixXd nrosy
     T2.row(i) = T1.row(i).cross(T3.row(i)).normalized();
   }
 
-//  for (unsigned i=0;i<F.rows();++i)
-//  {
-//    T1.row(i) << 1, 0, 0;
-//    T2.row(i) << 0, 0, 1;
-//    T3.row(i) << 0, 1, 0;
-//  }
-
-
   // Build the sparse matrix, with an energy term for each edge
   std::vector< Triplet<std::complex<double> > > t;
   std::vector< Triplet<std::complex<double> > > tb;
-  t.reserve(V.rows()*10);
+  t.reserve(F.rows()*2+soft_id.size());
   tb.reserve(soft_id.size());
 
   int count = 0;
@@ -62,24 +52,26 @@ MatrixXd nrosy
       // If it is a boundary edge, it does not contribute to the energy
       if ((fi == -1) || (fj == -1)) continue;
 
+      assert(fi == TT(fj,ej));
+      assert(ei == TTi(fj,ej));
+      assert(F(fi,ei) == F(fj,(ej+1)%3));
+      assert(F(fj,ej) == F(fi,(ei+1)%3));
+
+      // Avoid to count every edge twice
+      if (fi > fj) continue;
+
       // Compute the complex representation of the common edge
-      Vector3d vi = (V.row(F(fi,(ei+1)%3)) - V.row(F(fi,ei))).normalized();
-      std::complex<double> ci(vi.dot(T1.row(fi)),vi.dot(T2.row(fi)));
+      Vector3d vi  = (V.row(F(fi,(ei+1)%3)) - V.row(F(fi,ei)));
+      Vector2d vip = Vector2d(vi.dot(T1.row(fi)),vi.dot(T2.row(fi))).normalized();
+      std::complex<double> ci(vip(0),vip(1));
+
       // Note that the edge is flipped for fj to account for the different sorting of the vertices
-      Vector3d vj = (V.row(F(fj,ej)) - V.row(F(fj,(ej+1)%3))).normalized();
-      std::complex<double> cj(vj.dot(T1.row(fj)),vj.dot(T2.row(fj)));
+      Vector3d vj = (V.row(F(fj,ej)) - V.row(F(fj,(ej+1)%3)));
+      Vector2d vjp = Vector2d(vj.dot(T1.row(fj)),vj.dot(T2.row(fj))).normalized();
+      std::complex<double> cj(vjp(0),vjp(1));
 
-      // DEBUG
-      Vector3d via = T1.row(fi) * ci.real() + T2.row(fi) * ci.imag();
-      Vector3d vja = T1.row(fj) * cj.real() + T2.row(fj) * cj.imag();
-
-      cerr << "original " << vi.transpose() << " ---- " << vj.transpose() << endl;
-      cerr << "after    " << via.transpose() << " ---- " << vja.transpose() << endl;
-      // END DEBUG
-
-      // Energy term is ui^n*ei^n - uj^n*ej^n
-      t.push_back(Triplet<std::complex<double> >(count,fi, std::pow(std::conj(ci),n)));
-      t.push_back(Triplet<std::complex<double> >(count,fj,-std::pow(std::conj(cj),n)));
+      t.push_back(Triplet<std::complex<double> >(count,fi,    std::pow(std::conj(ci),n)));
+      t.push_back(Triplet<std::complex<double> >(count,fj,-1.*std::pow(std::conj(cj),n)));
 
       ++count;
     }
@@ -91,14 +83,10 @@ MatrixXd nrosy
     int f = soft_id(r);
     Vector3d v = soft_value.row(r);
     std::complex<double> c(v.dot(T1.row(f)),v.dot(T2.row(f)));
-    std::cerr << "Const: " << std::pow(c,n) << std::endl;
-    t.push_back(Triplet<std::complex<double> >(count,f, 100));
-    tb.push_back(Triplet<std::complex<double> >(count,0, std::pow(c,n) * std::complex<double>(100,0)));
-    count++;
+    t.push_back(Triplet<std::complex<double> >(count,f, 1000));
+    tb.push_back(Triplet<std::complex<double> >(count,0, std::pow(c,n) * std::complex<double>(1000,0)));
+    ++count;
   }
-
-  for(int i=0; i<t.size(); ++i)
-    std::cerr << t[i].row() << "\t\t" << t[i].col() << "\t\t" << t[i].value() << std::endl;
 
   // Solve the linear system
   SparseMatrix<std::complex<double>,RowMajor> A(count,F.rows());
@@ -106,33 +94,29 @@ MatrixXd nrosy
   SparseMatrix<std::complex<double>,RowMajor> b(count,1);
   b.setFromTriplets(tb.begin(), tb.end());
 
-  std::cerr << "soft_id:" << std::endl << soft_id << std::endl;
-  //std::cerr << "soft_value:" << std::endl << soft_value << std::endl;
-
-
-  std::cerr << "A:" << std::endl << MatrixXcd(A) << std::endl;
-
-  std::cerr << "b:" << std::endl << MatrixXcd(b) << std::endl;
-
-
-
   SparseLU< SparseMatrix<std::complex<double> > > solver;
-  solver.compute(A.transpose()*A);
+  solver.compute(A.adjoint()*A);
   assert(solver.info()==Success);
 
-//  std::cerr << "A:" << std::endl << MatrixXcd(A.transpose()*A) << std::endl;
-
-  Matrix<std::complex<double>, Dynamic, Dynamic> x = solver.solve(A.transpose()*MatrixXcd(b));
+  Matrix<std::complex<double>, Dynamic, Dynamic> x = solver.solve(A.adjoint()*MatrixXcd(b));
   assert(solver.info()==Success);
-
-  std::cerr << "x:" << std::endl << MatrixXcd(x) << std::endl;
 
   // Convert the interpolated polyvector into Euclidean vectors
   MatrixXd R(F.rows(),3);
   for (int f=0; f<F.rows(); ++f)
   {
-    std::complex<double> c = std::pow(x(f),-n);
-    R.row(f) = T1.row(f) * c.real() + T2.row(f) * c.imag();
+    std::complex<double> c0 = x(f);
+
+    // Builds the companion matrix for p(t) = (t - c0)
+    // https://en.wikipedia.org/wiki/Companion_matrix
+    Eigen::MatrixXcd M = Eigen::MatrixXcd::Zero(n,n);
+    for (int i=1;i<n;++i)
+      M(i,i-1) = std::complex<double>(1,0);
+    M(0,n-1) = c0;
+    Eigen::MatrixXcd roots = M.eigenvalues();
+    std::complex<double> root = roots(0);
+
+    R.row(f) = T1.row(f) * root.real() + T2.row(f) * root.imag();
   }
 
   std::cerr << "R:" << std::endl << R << std::endl;

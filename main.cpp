@@ -53,7 +53,9 @@ void representative_to_nrosy(
       double xj = cos(anglej);
       double yj = sin(anglej);
       Y.row(i*N+j) = xj * B1.row(i) + yj * B2.row(i);
+      Y.row(i*N+j) = Y.row(i*N+j) * R.row(i).norm();
     }
+
   }
 }
 
@@ -117,16 +119,17 @@ int main(int argc, char *argv[])
   using namespace Eigen;
 
   // Load a mesh in OBJ format
-  igl::readOBJ("../2triangles.obj", V, F);
-
+  //igl::readOBJ("../sphere.obj", V, F);
+  igl::readOFF("../bumpy.off", V, F);
   // Triangle-triangle adjacency
   igl::triangle_triangle_adjacency(F,TT,TTi);
 
   // Simple contraint
-  b.resize(1);
-  b << 0;
-  bc.resize(1,3);
-  bc << 1,1,1;
+  b.resize(2);
+  b(0) = 0;
+  b(1) = F.rows()-1;
+  bc.resize(2,3);
+  bc << 1,1,1,0,1,1;
 
   igl::viewer::Viewer viewer;
 
