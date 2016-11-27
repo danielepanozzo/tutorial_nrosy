@@ -2,13 +2,19 @@
 #include <igl/barycenter.h>
 #include <igl/local_basis.h>
 #include <igl/readOFF.h>
+#include <igl/readOBJ.h>
 #include <igl/viewer/Viewer.h>
+#include <igl/triangle_triangle_adjacency.h>
 
 #include "nrosy.h"
 
 // Mesh
 Eigen::MatrixXd V;
 Eigen::MatrixXi F;
+
+// Triangle-triangle adjacency
+Eigen::MatrixXi TT;
+Eigen::MatrixXi TTi;
 
 // Constrained faces id
 Eigen::VectorXi b;
@@ -97,10 +103,10 @@ bool key_down(igl::viewer::Viewer& viewer, unsigned char key, int modifier)
   if (key >= '1' && key <= '9')
     N = key - '0';
 
-  MatrixXd R;
+  MatrixXd R = nrosy(V,F,TT,TTi,b,bc,N);
 
-  //R = igl::copyleft::comiso::nrosy(V,F,b,bc,VectorXi(),VectorXd(),MatrixXd(),N,0.5,R,S);
-  //plot_mesh_nrosy(viewer,V,F,N,R,S,b);
+
+  plot_mesh_nrosy(viewer,V,F,N,R,b);
 
   return false;
 }
@@ -110,10 +116,13 @@ int main(int argc, char *argv[])
   using namespace std;
   using namespace Eigen;
 
-  // Load a mesh in OFF format
-  igl::readOFF("../bumpy.off", V, F);
+  // Load a mesh in OBJ format
+  igl::readOBJ("../2triangles.obj", V, F);
 
-  // Threshold faces with high anisotropy
+  // Triangle-triangle adjacency
+  igl::triangle_triangle_adjacency(F,TT,TTi);
+
+  // Simple contraint
   b.resize(1);
   b << 0;
   bc.resize(1,3);
@@ -122,7 +131,7 @@ int main(int argc, char *argv[])
   igl::viewer::Viewer viewer;
 
   // Interpolate the field and plot
-  key_down(viewer, '4', 0);
+  key_down(viewer, '1', 0);
 
   // Plot the mesh
   viewer.data.set_mesh(V, F);
