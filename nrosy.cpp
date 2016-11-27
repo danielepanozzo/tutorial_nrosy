@@ -4,6 +4,7 @@
 #include <Eigen/SparseCholesky>
 #include <iostream>
 
+using namespace std;
 using namespace Eigen;
 
 MatrixXd nrosy
@@ -34,6 +35,14 @@ MatrixXd nrosy
     T2.row(i) = T1.row(i).cross(T3.row(i)).normalized();
   }
 
+//  for (unsigned i=0;i<F.rows();++i)
+//  {
+//    T1.row(i) << 1, 0, 0;
+//    T2.row(i) << 0, 0, 1;
+//    T3.row(i) << 0, 1, 0;
+//  }
+
+
   // Build the sparse matrix, with an energy term for each edge
   std::vector< Triplet<std::complex<double> > > t;
   std::vector< Triplet<std::complex<double> > > tb;
@@ -54,11 +63,19 @@ MatrixXd nrosy
       if ((fi == -1) || (fj == -1)) continue;
 
       // Compute the complex representation of the common edge
-      Vector3d vi = V.row(F(fi,(ei+1)%3)) - V.row(F(fi,ei));
+      Vector3d vi = (V.row(F(fi,(ei+1)%3)) - V.row(F(fi,ei))).normalized();
       std::complex<double> ci(vi.dot(T1.row(fi)),vi.dot(T2.row(fi)));
       // Note that the edge is flipped for fj to account for the different sorting of the vertices
-      Vector3d vj = V.row(F(fj,ej)) - V.row(F(fj,(ej+1)%3));
+      Vector3d vj = (V.row(F(fj,ej)) - V.row(F(fj,(ej+1)%3))).normalized();
       std::complex<double> cj(vj.dot(T1.row(fj)),vj.dot(T2.row(fj)));
+
+      // DEBUG
+      Vector3d via = T1.row(fi) * ci.real() + T2.row(fi) * ci.imag();
+      Vector3d vja = T1.row(fj) * cj.real() + T2.row(fj) * cj.imag();
+
+      cerr << "original " << vi.transpose() << " ---- " << vj.transpose() << endl;
+      cerr << "after    " << via.transpose() << " ---- " << vja.transpose() << endl;
+      // END DEBUG
 
       // Energy term is ui^n*ei^n - uj^n*ej^n
       t.push_back(Triplet<std::complex<double> >(count,fi, std::pow(std::conj(ci),n)));
@@ -89,13 +106,6 @@ MatrixXd nrosy
   SparseMatrix<std::complex<double>,RowMajor> b(count,1);
   b.setFromTriplets(tb.begin(), tb.end());
 
-  SparseLU< SparseMatrix<std::complex<double> > > solver;
-  solver.compute(A.transpose()*A);
-  assert(solver.info()==Success);
-
-  Matrix<std::complex<double>, Dynamic, Dynamic> x = solver.solve(A.transpose()*MatrixXcd(b));
-  assert(solver.info()==Success);
-
   std::cerr << "soft_id:" << std::endl << soft_id << std::endl;
   //std::cerr << "soft_value:" << std::endl << soft_value << std::endl;
 
@@ -103,6 +113,17 @@ MatrixXd nrosy
   std::cerr << "A:" << std::endl << MatrixXcd(A) << std::endl;
 
   std::cerr << "b:" << std::endl << MatrixXcd(b) << std::endl;
+
+
+
+  SparseLU< SparseMatrix<std::complex<double> > > solver;
+  solver.compute(A.transpose()*A);
+  assert(solver.info()==Success);
+
+//  std::cerr << "A:" << std::endl << MatrixXcd(A.transpose()*A) << std::endl;
+
+  Matrix<std::complex<double>, Dynamic, Dynamic> x = solver.solve(A.transpose()*MatrixXcd(b));
+  assert(solver.info()==Success);
 
   std::cerr << "x:" << std::endl << MatrixXcd(x) << std::endl;
 
@@ -120,4 +141,3 @@ MatrixXd nrosy
 
 
 }
-
