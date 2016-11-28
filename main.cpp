@@ -5,8 +5,9 @@
 #include <igl/readOBJ.h>
 #include <igl/viewer/Viewer.h>
 #include <igl/triangle_triangle_adjacency.h>
+#include <igl/unproject_onto_mesh.h>
 
-#include "nrosy.h"
+#include "tutorial_nrosy.h"
 
 // Mesh
 Eigen::MatrixXd V;
@@ -22,8 +23,14 @@ Eigen::VectorXi b;
 // Cosntrained faces representative vector
 Eigen::MatrixXd bc;
 
+// Currently selected face
+int selected;
+
 // Degree of the N-RoSy field
 int N;
+
+// Local basis
+Eigen::MatrixXd B1, B2, B3;
 
 // Converts a representative vector per face in the full set of vectors that describe
 // an N-RoSy field
@@ -36,9 +43,6 @@ void representative_to_nrosy(
 {
   using namespace Eigen;
   using namespace std;
-  MatrixXd B1, B2, B3;
-
-  igl::local_basis(V,F,B1,B2,B3);
 
   Y.resize(F.rows()*N,3);
   for (unsigned i=0;i<F.rows();++i)
@@ -97,20 +101,106 @@ void plot_mesh_nrosy(
   viewer.data.set_colors(C);
 }
 
-  // It allows to change the degree of the field when a number is pressed
+// It allows to change the degree of the field when a number is pressed
 bool key_down(igl::viewer::Viewer& viewer, unsigned char key, int modifier)
 {
   using namespace Eigen;
   using namespace std;
+
   if (key >= '1' && key <= '9')
   {
     N = key - '0';
-    MatrixXd R = nrosy(V,F,TT,b,bc,N);
+    MatrixXd R = tutorial_nrosy(V,F,TT,b,bc,N);
+    plot_mesh_nrosy(viewer,V,F,N,R,b);
+  }
+
+  if (key == '[' || key == ']')
+  {
+    if (selected >= b.size() || selected < 0)
+      return false;
+
+    int i = b(selected);
+    Vector3d v = bc.row(selected);
+
+    double x = B1.row(i) * v;
+    double y = B2.row(i) * v;
+    double norm = sqrt(x*x+y*y);
+    double angle = atan2(y,x);
+
+    angle += key == '[' ? -M_PI/16 : M_PI/16;
+
+    double xj = cos(angle)*norm;
+    double yj = sin(angle)*norm;
+
+    bc.row(selected) = xj * B1.row(i) + yj * B2.row(i);
+    MatrixXd R = tutorial_nrosy(V,F,TT,b,bc,N);
+    plot_mesh_nrosy(viewer,V,F,N,R,b);
+  }
+
+  if (key == 'Q' || key == 'W')
+  {
+    if (selected >= b.size() || selected < 0)
+      return false;
+
+    bc.row(selected) =  bc.row(selected) * (key == 'Q' ? 3./2. : 2./3.);
+
+    MatrixXd R = tutorial_nrosy(V,F,TT,b,bc,N);
+    plot_mesh_nrosy(viewer,V,F,N,R,b);
+  }
+
+  if (key == 'E')
+  {
+    if (selected >= b.size() || selected < 0)
+      return false;
+
+    b(selected) = b(b.rows()-1);
+    b.conservativeResize(b.size()-1);
+    bc.row(selected) = bc.row(bc.rows()-1);
+    bc.conservativeResize(b.size()-1,bc.cols());
+    MatrixXd R = tutorial_nrosy(V,F,TT,b,bc,N);
     plot_mesh_nrosy(viewer,V,F,N,R,b);
   }
 
   return false;
 }
+
+bool mouse_down(igl::viewer::Viewer& viewer, int, int)
+{
+  int fid_ray;
+  Eigen::Vector3f bary;
+  // Cast a ray in the view direction starting from the mouse position
+  double x = viewer.current_mouse_x;
+  double y = viewer.core.viewport(3) - viewer.current_mouse_y;
+  if(igl::unproject_onto_mesh(Eigen::Vector2f(x,y), viewer.core.view * viewer.core.model,
+    viewer.core.proj, viewer.core.viewport, V, F, fid_ray, bary))
+  {
+    bool found = false;
+    for (int i=0;i<b.size();++i)
+    {
+      if (b(i) == fid_ray)
+      {
+        found = true;
+        selected = i;
+      }
+    }
+
+    if (!found)
+    {
+      b.conservativeResize(b.size()+1);
+      b(b.size()-1) = fid_ray;
+      bc.conservativeResize(bc.rows()+1,bc.cols());
+      bc.row(bc.rows()-1) << 1, 1, 1;
+      selected = bc.rows()-1;
+
+      Eigen::MatrixXd R = tutorial_nrosy(V,F,TT,b,bc,N);
+      plot_mesh_nrosy(viewer,V,F,N,R,b);
+    }
+
+    return true;
+  }
+  return false;
+};
+
 
 int main(int argc, char *argv[])
 {
@@ -123,12 +213,17 @@ int main(int argc, char *argv[])
   // Triangle-triangle adjacency
   igl::triangle_triangle_adjacency(F,TT,TTi);
 
+  // Compute the local_basis
+  igl::local_basis(V,F,B1,B2,B3);
+
   // Simple constraints
   b.resize(2);
   b(0) = 0;
   b(1) = F.rows()-1;
   bc.resize(2,3);
   bc << 1,1,1,0,1,1;
+
+  selected = 0;
 
   igl::viewer::Viewer viewer;
 
@@ -137,7 +232,10 @@ int main(int argc, char *argv[])
 
   // Plot the mesh
   viewer.data.set_mesh(V, F);
+
+  // Register the callbacks
   viewer.callback_key_down = &key_down;
+  viewer.callback_mouse_down = &mouse_down;
 
   // Disable wireframe
   viewer.core.show_lines = false;

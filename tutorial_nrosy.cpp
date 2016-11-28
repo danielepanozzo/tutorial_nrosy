@@ -1,4 +1,4 @@
-#include "nrosy.h"
+#include "tutorial_nrosy.h"
 #include <Eigen/Geometry>
 #include <Eigen/Sparse>
 #include <Eigen/SparseCholesky>
@@ -8,7 +8,7 @@
 using namespace std;
 using namespace Eigen;
 
-MatrixXd nrosy
+MatrixXd tutorial_nrosy
         (
         const MatrixXd& V,          // Vertices of the mesh
         const MatrixXi& F,          // Faces

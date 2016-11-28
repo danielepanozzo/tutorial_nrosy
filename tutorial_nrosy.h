@@ -1,9 +1,9 @@
-#ifndef NROSY
-#define NROSY
+#ifndef TUTORIAL_NROSY
+#define TUTORIAL_NROSY
 
 #include <Eigen/Core>
 
-Eigen::MatrixXd nrosy
+Eigen::MatrixXd tutorial_nrosy
         (
         const Eigen::MatrixXd& V,          // Vertices of the mesh
         const Eigen::MatrixXi& F,          // Faces
