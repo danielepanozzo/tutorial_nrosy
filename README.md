@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/danielepanozzo/tutorial_nrosy.svg?branch=master)](https://travis-ci.org/danielepanozzo/tutorial_nrosy)
+[![Build status](https://ci.appveyor.com/api/projects/status/es190vhn9ehbgvad?svg=true)](https://ci.appveyor.com/project/danielepanozzo/tutorial_nrosy)
 # NRosy Demo
 
 ## Compile
