@@ -6,8 +6,8 @@ matrix:
       compiler: gcc-4.8.1
       script:
         - git submodule update --init --recursive
-        - mkdir libigl/ext/glfw/include/GL
-        - wget --no-check-certificate -P ext/glfw/include/GL https://www.opengl.org/registry/api/GL/glcorearb.h
+        - mkdir libigl/external/nanogui/ext/glfw/include/GL
+        - wget --no-check-certificate -P libigl/external/nanogui/ext/glfw/include/GL https://www.opengl.org/registry/api/GL/glcorearb.h
         - mkdir build
         - cd build
         - cmake -DCMAKE_CXX_COMPILER=g++-4.8 -DCMAKE_C_COMPILER=gcc-4.8 ../

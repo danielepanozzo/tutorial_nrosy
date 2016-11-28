@@ -6,20 +6,15 @@
 
 Compile this project using the standard cmake routine:
 
+    git clone --recursive https://github.com/danielepanozzo/tutorial_nrosy
     mkdir build
     cd build
     cmake ..
     make
+    ./tutorial_nrosy
 
-This should find and build the dependencies and create a `nrosy` binary.
-
-## Run
-
-From within the `build` directory just issue:
-
-    ./nrosy
-
-A glfw app should launch displaying a 3D cube and visualizing a 4-RoSy field.
+This should find and build the dependencies and create a `tutorial_nrosy` binary.
+You must clone the repository with the --recursive option.
 
 ## Dependencies
 
