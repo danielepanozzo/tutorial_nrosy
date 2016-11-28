@@ -23,7 +23,7 @@ Eigen::VectorXi b;
 Eigen::MatrixXd bc;
 
 // Degree of the N-RoSy field
-int N = 4;
+int N;
 
 // Converts a representative vector per face in the full set of vectors that describe
 // an N-RoSy field
@@ -103,12 +103,11 @@ bool key_down(igl::viewer::Viewer& viewer, unsigned char key, int modifier)
   using namespace Eigen;
   using namespace std;
   if (key >= '1' && key <= '9')
+  {
     N = key - '0';
-
-  MatrixXd R = nrosy(V,F,TT,TTi,b,bc,N);
-
-
-  plot_mesh_nrosy(viewer,V,F,N,R,b);
+    MatrixXd R = nrosy(V,F,TT,b,bc,N);
+    plot_mesh_nrosy(viewer,V,F,N,R,b);
+  }
 
   return false;
 }
@@ -124,7 +123,7 @@ int main(int argc, char *argv[])
   // Triangle-triangle adjacency
   igl::triangle_triangle_adjacency(F,TT,TTi);
 
-  // Simple contraint
+  // Simple constraints
   b.resize(2);
   b(0) = 0;
   b(1) = F.rows()-1;
@@ -134,7 +133,7 @@ int main(int argc, char *argv[])
   igl::viewer::Viewer viewer;
 
   // Interpolate the field and plot
-  key_down(viewer, '1', 0);
+  key_down(viewer, '2', 0);
 
   // Plot the mesh
   viewer.data.set_mesh(V, F);
