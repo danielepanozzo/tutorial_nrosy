@@ -228,7 +228,7 @@ int main(int argc, char *argv[])
   igl::viewer::Viewer viewer;
 
   // Interpolate the field and plot
-  key_down(viewer, '2', 0);
+  key_down(viewer, '1', 0);
 
   // Plot the mesh
   viewer.data.set_mesh(V, F);

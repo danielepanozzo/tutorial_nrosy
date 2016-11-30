@@ -8,17 +8,6 @@
 using namespace std;
 using namespace Eigen;
 
-std::complex<double> find_root(std::complex<double> c0, int n)
-{
-  // Find the roots of p(t) = (t - c0)^n using
-  // https://en.wikipedia.org/wiki/Companion_matrix
-  Eigen::MatrixXcd M = Eigen::MatrixXcd::Zero(n,n);
-  for (int i=1;i<n;++i)
-    M(i,i-1) = std::complex<double>(1,0);
-  M(0,n-1) = c0;
-  return M.eigenvalues()(0);
-}
-
 MatrixXd tutorial_nrosy
         (
         const MatrixXd& V,          // Vertices of the mesh
@@ -68,8 +57,8 @@ MatrixXd tutorial_nrosy
       std::complex<double> cj(vj(0),vj(1));
 
       // Add the term conj(fi)^n*xi - conj(fj)^n*xj to the energy matrix
-      t.push_back(Triplet<std::complex<double> >(count,fi,    std::pow(std::conj(ci),n)));
-      t.push_back(Triplet<std::complex<double> >(count,fj,-1.*std::pow(std::conj(cj),n)));
+      t.push_back(Triplet<std::complex<double> >(count,fi,    std::conj(ci)));
+      t.push_back(Triplet<std::complex<double> >(count,fj,-1.*std::conj(cj)));
 
       ++count;
     }
@@ -82,7 +71,7 @@ MatrixXd tutorial_nrosy
     Vector3d v = soft_value.row(r);
     std::complex<double> c(v.dot(T1.row(f)),v.dot(T2.row(f)));
     t.push_back(Triplet<std::complex<double> >(count,f, 1000));
-    tb.push_back(Triplet<std::complex<double> >(count,0, std::pow(c,n) * std::complex<double>(1000,0)));
+    tb.push_back(Triplet<std::complex<double> >(count,0, c * std::complex<double>(1000,0)));
     ++count;
   }
 
@@ -101,10 +90,7 @@ MatrixXd tutorial_nrosy
   // Convert the interpolated polyvector into Euclidean vectors
   MatrixXd R(F.rows(),3);
   for (int f=0; f<F.rows(); ++f)
-  {
-    std::complex<double> root = find_root(x(f),n);
-    R.row(f) = T1.row(f) * root.real() + T2.row(f) * root.imag();
-  }
+    R.row(f) = T1.row(f) * x(f).real() + T2.row(f) * x(f).imag();
 
   return R;
 }
