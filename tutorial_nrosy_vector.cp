@@ -36,42 +36,38 @@ MatrixXd tutorial_nrosy
   std::vector< Triplet<std::complex<double> > > tb;
 
   unsigned count = 0;
-  for (unsigned fi=0;fi<F.rows();++fi)
+  for (unsigned f=0;f<F.rows();++f)
   {
     for (unsigned ei=0;ei<F.cols();++ei)
     {
       // Look up the opposite face
-      int fj = TT(fi,ei);
-
+      int g = TT(f,ei);
       // If it is a boundary edge, it does not contribute to the energy
-      if (fj == -1) continue;
-
+      if (g == -1) continue;
       // Avoid to count every edge twice
-      if (fi > fj) continue;
-
+      if (f > g) continue;
       // Compute the complex representation of the common edge
-      Vector3d v  = (V.row(F(fi,(ei+1)%3)) - V.row(F(fi,ei)));
-      Vector2d vi = Vector2d(v.dot(T1.row(fi)),v.dot(T2.row(fi))).normalized();
-      std::complex<double> ci(vi(0),vi(1));
-      Vector2d vj = Vector2d(v.dot(T1.row(fj)),v.dot(T2.row(fj))).normalized();
-      std::complex<double> cj(vj(0),vj(1));
-
-      // Add the term conj(fi)^n*xi - conj(fj)^n*xj to the energy matrix
-      t.push_back(Triplet<std::complex<double> >(count,fi,    std::conj(ci)));
-      t.push_back(Triplet<std::complex<double> >(count,fj,-1.*std::conj(cj)));
-
+      Vector3d e  = (V.row(F(f,(ei+1)%3)) - V.row(F(f,ei)));
+      Vector2d vef = Vector2d(e.dot(T1.row(f)),e.dot(T2.row(f))).normalized();
+      std::complex<double> ef(vef(0),vef(1));
+      Vector2d veg = Vector2d(e.dot(T1.row(g)),e.dot(T2.row(g))).normalized();
+      std::complex<double> eg(veg(0),veg(1));
+      // Add the term conj(f)^n*ui - conj(g)^n*uj to the energy matrix
+      t.push_back(Triplet<std::complex<double> >(count,f,    std::conj(ef)));
+      t.push_back(Triplet<std::complex<double> >(count,g,-1.*std::conj(eg)));
       ++count;
     }
   }
 
   // Convert the constraints into the complex polynomial coefficients and add them as soft constraints
+  double lambda = 10e6;
   for (unsigned r=0; r<soft_id.size(); ++r)
   {
     int f = soft_id(r);
     Vector3d v = soft_value.row(r);
     std::complex<double> c(v.dot(T1.row(f)),v.dot(T2.row(f)));
-    t.push_back(Triplet<std::complex<double> >(count,f, 1000));
-    tb.push_back(Triplet<std::complex<double> >(count,0, c * std::complex<double>(1000,0)));
+    t.push_back(Triplet<std::complex<double> >(count,f, sqrt(lambda)));
+    tb.push_back(Triplet<std::complex<double> >(count,0, c * std::complex<double>(sqrt(lambda),0)));
     ++count;
   }
 
@@ -84,13 +80,13 @@ MatrixXd tutorial_nrosy
   SparseLU< SparseMatrixXcd > solver;
   solver.compute(A.adjoint()*A);
   assert(solver.info()==Success);
-  MatrixXcd x = solver.solve(A.adjoint()*MatrixXcd(b));
+  MatrixXcd u = solver.solve(A.adjoint()*MatrixXcd(b));
   assert(solver.info()==Success);
 
   // Convert the interpolated polyvector into Euclidean vectors
   MatrixXd R(F.rows(),3);
   for (int f=0; f<F.rows(); ++f)
-    R.row(f) = T1.row(f) * x(f).real() + T2.row(f) * x(f).imag();
+    R.row(f) = T1.row(f) * u(f).real() + T2.row(f) * u(f).imag();
 
   return R;
 }
